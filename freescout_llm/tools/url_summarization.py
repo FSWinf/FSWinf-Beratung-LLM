@@ -3,8 +3,9 @@ URL summarization tool for the RAG pipeline.
 Provides web content fetching and summarization capabilities.
 """
 
+import random
 from io import BytesIO
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import pypdf
 import requests
@@ -20,6 +21,7 @@ ALLOWED_DOMAINS = {
     "fsinf.at",
     "vowi.fsinf.at",
     "informatics.tuwien.ac.at",
+    "tiss.tuwien.ac.at",
 }
 
 
@@ -34,6 +36,21 @@ def _is_domain_allowed(url: str) -> bool:
             domain = domain[4:]
 
         return domain in ALLOWED_DOMAINS
+    except Exception:
+        return False
+
+
+def _is_tiss_url(url: str) -> bool:
+    """Check if the URL is from TISS (tiss.tuwien.ac.at)."""
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        
+        # Remove www. prefix if present
+        if domain.startswith("www."):
+            domain = domain[4:]
+            
+        return domain == "tiss.tuwien.ac.at"
     except Exception:
         return False
 
@@ -61,6 +78,88 @@ def _get_browser_headers() -> dict:
         "Accept-Encoding": "gzip, deflate",
         "Connection": "keep-alive",
     }
+
+
+def _get_tiss_headers() -> dict:
+    """Get TISS-specific headers for accessing tiss.tuwien.ac.at."""
+    return {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Language": "en-US,en;q=0.9,de;q=0.8",
+        "Cache-Control": "max-age=0",
+        "Connection": "keep-alive",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "sec-ch-ua": '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+    }
+
+
+def _get_tiss_cookies() -> dict:
+    """Get TISS-specific cookies for accessing tiss.tuwien.ac.at."""
+    return {
+        "TISS_LANG": "de",
+        "SERVERID": "eps1",
+    }
+
+
+def _generate_tiss_token() -> str:
+    """
+    Generate a new TISS request token similar to the JavaScript function:
+    generateNewRequestToken: function () {
+      return '' + Math.floor(999 * Math.random())
+    }
+
+    Returns:
+        Random token string
+    """
+    return str(int(999 * random.random()))
+
+
+def _add_tiss_token_to_url(url: str, token: str) -> str:
+    """
+    Add the dsrid token to a TISS URL, similar to the JavaScript setUrlParam function.
+
+    Args:
+        url: URL to modify
+        token: Token to add
+
+    Returns:
+        URL with token parameter
+    """
+    parsed = urlparse(url)
+    query_params = parse_qs(parsed.query, keep_blank_values=True)
+    query_params["dsrid"] = [token]
+
+    # Convert back to flat dict for urlencode (taking first value of each list)
+    flat_params = {k: v[0] for k, v in query_params.items()}
+
+    # Rebuild query string using urlencode
+    new_query = urlencode(flat_params)
+
+    # Rebuild URL
+    new_parsed = parsed._replace(query=new_query)
+    return urlunparse(new_parsed)
+
+
+def _get_tiss_session_cookies(token: str) -> dict:
+    """
+    Get TISS session cookies including the dynamic token cookie.
+    
+    Args:
+        token: The generated token for this request
+        
+    Returns:
+        Dictionary with all required TISS cookies
+    """
+    cookies = _get_tiss_cookies()
+    # Add the dynamic token cookie similar to: dswh.utils.storeCookie('dsrwid-' + b, dswh.windowId, 3);
+    cookies[f"dsrwid-{token}"] = "2705"  # Using the windowId from the TISS scraper
+    return cookies
 
 
 def _process_html_content(content: bytes) -> str:
@@ -135,8 +234,23 @@ def create_url_summarization_tool(llm):
                 allowed_list = ", ".join(sorted(ALLOWED_DOMAINS))
                 return f"Error: URL domain not allowed. Only the following domains are permitted: {allowed_list}"
 
+            # Prepare request parameters based on domain
+            if _is_tiss_url(url):
+                # Generate token and prepare TISS-specific request
+                token = _generate_tiss_token()
+                url_with_token = _add_tiss_token_to_url(url, token)
+                headers = _get_tiss_headers()
+                cookies = _get_tiss_session_cookies(token)
+                print(f"[URL Tool] Using TISS-specific headers, cookies, and token: {token}")
+                # Use the URL with token for the actual request
+                request_url = url_with_token
+            else:
+                headers = _get_browser_headers()
+                cookies = None
+                request_url = url
+
             # Fetch the content
-            response = requests.get(url, headers=_get_browser_headers(), timeout=15)
+            response = requests.get(request_url, headers=headers, cookies=cookies, timeout=15)
             response.raise_for_status()
 
             # Check content type to determine how to process

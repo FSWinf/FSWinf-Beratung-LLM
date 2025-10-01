@@ -91,6 +91,76 @@ class TestRAGPipeline:
         assert "tuwien.at" in result  # Should mention allowed domains
 
     @patch("freescout_llm.tools.url_summarization.requests.get")
+    def test_url_tool_tiss_support(self, mock_get):
+        """Test URL tool TISS domain support with dynamic token authentication."""
+        # Mock the HTTP response for TISS
+        mock_response = MagicMock()
+        mock_response.content = b"""
+        <html>
+            <head><title>TISS - Course Information</title></head>
+            <body>
+                <h1>Informatik Studium</h1>
+                <p>Informationen zur <strong>Informatik</strong> an der TU Wien.</p>
+                <div class="course-info">
+                    <h2>Vorlesungsverzeichnis</h2>
+                    <p>Anmeldung erforderlich</p>
+                </div>
+            </body>
+        </html>
+        """
+        mock_response.headers = {"content-type": "text/html; charset=utf-8"}
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        # Mock LLM response for summarization
+        mock_llm_instance = MagicMock()
+        mock_llm_instance.invoke.return_value = MagicMock(
+            content="Diese TISS-Seite enthält Informationen zum Informatik-Studium an der TU Wien mit Details zur Vorlesungsanmeldung."
+        )
+
+        # Create URL tool directly
+        url_tool = create_url_summarization_tool(mock_llm_instance)
+
+        # Test with TISS URL
+        result = url_tool.invoke(
+            {
+                "url": "https://tiss.tuwien.ac.at/course/courseOverview.xhtml?courseNr=123456",
+                "reason": "Check course information",
+            }
+        )
+
+        # Verify the result contains expected information
+        assert "https://tiss.tuwien.ac.at" in result
+        assert "TISS-Seite" in result
+        assert "Informatik" in result
+
+        # Verify that requests.get was called with TISS-specific authentication
+        mock_get.assert_called_once()
+        call_args = mock_get.call_args
+        
+        # Check that the URL was modified to include dsrid token
+        called_url = call_args.args[0]
+        assert "dsrid=" in called_url
+        assert "courseNr=123456" in called_url
+        
+        # Check that dynamic cookies were passed (including the token-based cookie)
+        assert "cookies" in call_args.kwargs
+        cookies = call_args.kwargs["cookies"]
+        assert cookies["TISS_LANG"] == "de"
+        assert cookies["SERVERID"] == "eps1"
+        
+        # Verify that a dynamic dsrwid cookie was created
+        dsrwid_cookies = [k for k in cookies.keys() if k.startswith("dsrwid-")]
+        assert len(dsrwid_cookies) == 1
+        assert cookies[dsrwid_cookies[0]] == "2705"
+        
+        # Check that TISS headers were used
+        assert "headers" in call_args.kwargs
+        headers = call_args.kwargs["headers"]
+        assert "sec-ch-ua" in headers
+        assert "Chrome" in headers["User-Agent"]
+
+    @patch("freescout_llm.tools.url_summarization.requests.get")
     def test_url_tool_pdf_support(self, mock_get):
         """Test URL tool PDF support."""
 

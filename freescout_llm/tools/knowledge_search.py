@@ -47,11 +47,10 @@ def create_knowledge_search_tool(vector_db):
             # Format the results
             results = []
             for i, doc in enumerate(docs, 1):
-                source = doc.metadata.get("source", "Unknown")
                 source_url = doc.metadata.get("source_url", "")
                 content = doc.page_content.strip()
 
-                result = f"Document {i} (Source: {source}):\n{content}"
+                result = f"Document {i}:\n{content}"
                 if source_url:
                     result += f"\nURL: {source_url}"
                 results.append(result)
