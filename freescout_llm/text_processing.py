@@ -3,7 +3,7 @@ Text processing utilities for the FreeScout LLM integration.
 """
 
 import bleach
-import markdown
+import mistune
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 
@@ -45,7 +45,9 @@ def markdown_to_html(markdown_content: str) -> str:
     Returns:
         HTML formatted string
     """
-    return markdown.markdown(markdown_content)
+    # Use mistune for more flexible markdown parsing
+    # It handles lists without requiring blank lines
+    return mistune.html(markdown_content)
 
 
 def sanitize_html(html_content: str) -> str:
