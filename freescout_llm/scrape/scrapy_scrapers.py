@@ -3,6 +3,7 @@ Scrapy-based scrapers for various websites.
 """
 
 import hashlib
+import json
 import os
 from urllib.parse import urlparse
 
@@ -22,6 +23,30 @@ from .base import (
 def generate_filename_hash(url: str) -> str:
     """Generate a short hash from the URL to ensure unique filenames."""
     return hashlib.md5(url.encode("utf-8")).hexdigest()[:8]
+
+
+def save_pdf_metadata(pdf_filepath: str, source_url: str) -> None:
+    """
+    Save PDF metadata to a JSON file alongside the PDF.
+
+    Args:
+        pdf_filepath: Path to the PDF file
+        source_url: Original URL where the PDF was downloaded from
+    """
+    # Create JSON filename by replacing .pdf extension with .json
+    json_filepath = pdf_filepath.rsplit(".", 1)[0] + ".json"
+
+    metadata = {
+        "source_url": source_url,
+        "pdf_filename": os.path.basename(pdf_filepath),
+        "type": "pdf_metadata",
+    }
+
+    try:
+        with open(json_filepath, "w", encoding="utf-8") as f:
+            json.dump(metadata, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"Warning: Could not save PDF metadata to {json_filepath}: {e}")
 
 
 class HTUATSpider(CrawlSpider):
@@ -145,6 +170,11 @@ class InformaticsTUWienSpider(CrawlSpider):
             with open(fpath, "wb") as f:
                 f.write(response.body)
             self.logger.info(f"  -> Saved PDF to {fpath}")
+
+            # Save PDF metadata with source URL
+            save_pdf_metadata(fpath, response.url)
+            self.logger.info(f"  -> Saved PDF metadata for {response.url}")
+
             return  # Don't process links for PDFs
 
         # Skip other non-HTML file types

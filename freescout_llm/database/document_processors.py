@@ -91,9 +91,14 @@ class KnowledgeBaseProcessor(DocumentProcessor):
         )
 
         content = doc.page_content
+        metadata = doc.metadata if isinstance(doc.metadata, dict) else {}
 
-        # Extract source URL from content if present
-        if content.startswith("<!-- Source URL:"):
+        # For PDFs, check if we have source_url from JSON metadata
+        if metadata.get("source_url"):
+            # PDF with JSON metadata - use the source_url from JSON
+            source_url = metadata["source_url"]
+        elif content.startswith("<!-- Source URL:"):
+            # Markdown file with embedded source URL
             lines = content.split("\n")
             first_line = lines[0]
             if "Source URL:" in first_line:
@@ -103,10 +108,10 @@ class KnowledgeBaseProcessor(DocumentProcessor):
                     source_url = first_line[start:end].strip()
                     content = "\n".join(lines[2:])
 
-        metadata = doc.metadata if isinstance(doc.metadata, dict) else {}
-        metadata = {**metadata, "source_url": source_url}
+        # Update metadata with processed source URL
+        final_metadata = {**metadata, "source_url": source_url}
 
-        return Document(page_content=content, metadata=metadata)
+        return Document(page_content=content, metadata=final_metadata)
 
 
 class EmailChainProcessor(DocumentProcessor):
