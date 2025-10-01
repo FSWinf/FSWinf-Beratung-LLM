@@ -17,8 +17,8 @@ class TestRAGPipeline:
         mock_exists.return_value = False
 
         with (
-            patch("freescout_llm.llm_providers.ChatOllama") as mock_chat,
-            patch("freescout_llm.llm_providers.OllamaEmbeddings") as mock_embeddings,
+            patch("langchain_ollama.ChatOllama") as mock_chat,
+            patch("langchain_ollama.OllamaEmbeddings") as mock_embeddings,
         ):
 
             mock_chat.return_value = MagicMock()
@@ -226,8 +226,8 @@ class TestRAGPipeline:
         mock_exists.return_value = False
 
         with (
-            patch("freescout_llm.llm_providers.ChatOllama") as mock_chat,
-            patch("freescout_llm.llm_providers.OllamaEmbeddings") as mock_embeddings,
+            patch("langchain_ollama.ChatOllama") as mock_chat,
+            patch("langchain_ollama.OllamaEmbeddings") as mock_embeddings,
             patch("freescout_llm.rag_pipeline.create_tool_calling_agent") as mock_agent,
             patch("freescout_llm.rag_pipeline.AgentExecutor") as mock_executor,
         ):

@@ -15,14 +15,22 @@ from freescout_llm.vector_db import VectorDatabaseGenerator
 class TestVectorDatabaseGeneration:
     """Test cases for vector database generation."""
 
-    @patch("freescout_llm.database.document_loaders.load_documents")
+    @patch("freescout_llm.vector_db.load_documents")  # Mock at the vector_db level
     @patch(
-        "freescout_llm.database.vector_db_manager.VectorDatabaseManager.initialize_embeddings"
+        "freescout_llm.database.vector_db_manager.initialize_embeddings"
+    )  # Mock at the right level
+    @patch(
+        "freescout_llm.database.vector_db_manager.VectorDatabaseManager.generate_database"
     )
-    def test_knowledge_base_generation(self, mock_init_embeddings, mock_load_docs):
+    def test_knowledge_base_generation(
+        self, mock_generate_db, mock_init_embeddings, mock_load_docs
+    ):
         """Test knowledge base vector database generation."""
-        mock_init_embeddings.return_value = True
+        # Mock the embeddings initialization to avoid server contact
+        mock_embeddings = MagicMock()
+        mock_init_embeddings.return_value = mock_embeddings
         mock_load_docs.return_value = []  # Empty documents for simple test
+        mock_generate_db.return_value = False  # Simulate no documents to process
 
         generator = VectorDatabaseGenerator()
         result = generator.generate(force=True)
@@ -32,14 +40,24 @@ class TestVectorDatabaseGeneration:
         mock_init_embeddings.assert_called_once()
         mock_load_docs.assert_called_once()
 
-    @patch("freescout_llm.database.document_loaders.load_email_chains")
+    @patch("freescout_llm.vector_db.load_email_chains")  # Mock at the vector_db level
     @patch(
-        "freescout_llm.database.vector_db_manager.VectorDatabaseManager.initialize_embeddings"
+        "freescout_llm.database.vector_db_manager.initialize_embeddings"
+    )  # Mock at the right level
+    @patch(
+        "freescout_llm.database.vector_db_manager.VectorDatabaseManager.generate_database"
     )
-    def test_email_repository_generation(self, mock_init_embeddings, mock_load_emails):
+    def test_email_repository_generation(
+        self, mock_generate_db, mock_init_embeddings, mock_load_emails
+    ):
         """Test email repository generation."""
-        mock_init_embeddings.return_value = True
+        # Mock the embeddings initialization to avoid server contact
+        mock_embeddings = MagicMock()
+        mock_init_embeddings.return_value = mock_embeddings
         mock_load_emails.return_value = []  # Empty documents for simple test
+        mock_generate_db.return_value = (
+            True  # Email repository generation returns True for empty
+        )
 
         generator = VectorDatabaseGenerator()
         result = generator.generate_email_repository(force=True)
@@ -92,7 +110,9 @@ Email content here"""
     @patch("freescout_llm.database.vector_db_manager.initialize_embeddings")
     def test_vector_db_manager_initialization(self, mock_init_embeddings):
         """Test vector database manager initialization."""
-        mock_init_embeddings.return_value = MagicMock()
+        # Mock the embeddings initialization to avoid server contact
+        mock_embeddings = MagicMock()
+        mock_init_embeddings.return_value = mock_embeddings
 
         manager = VectorDatabaseManager()
         result = manager.initialize_embeddings()
