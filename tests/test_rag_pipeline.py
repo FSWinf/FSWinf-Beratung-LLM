@@ -137,23 +137,23 @@ class TestRAGPipeline:
         # Verify that requests.get was called with TISS-specific authentication
         mock_get.assert_called_once()
         call_args = mock_get.call_args
-        
+
         # Check that the URL was modified to include dsrid token
         called_url = call_args.args[0]
         assert "dsrid=" in called_url
         assert "courseNr=123456" in called_url
-        
+
         # Check that dynamic cookies were passed (including the token-based cookie)
         assert "cookies" in call_args.kwargs
         cookies = call_args.kwargs["cookies"]
         assert cookies["TISS_LANG"] == "de"
         assert cookies["SERVERID"] == "eps1"
-        
+
         # Verify that a dynamic dsrwid cookie was created
         dsrwid_cookies = [k for k in cookies.keys() if k.startswith("dsrwid-")]
         assert len(dsrwid_cookies) == 1
         assert cookies[dsrwid_cookies[0]] == "2705"
-        
+
         # Check that TISS headers were used
         assert "headers" in call_args.kwargs
         headers = call_args.kwargs["headers"]

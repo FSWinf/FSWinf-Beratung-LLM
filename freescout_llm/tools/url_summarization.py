@@ -45,11 +45,11 @@ def _is_tiss_url(url: str) -> bool:
     try:
         parsed = urlparse(url)
         domain = parsed.netloc.lower()
-        
+
         # Remove www. prefix if present
         if domain.startswith("www."):
             domain = domain[4:]
-            
+
         return domain == "tiss.tuwien.ac.at"
     except Exception:
         return False
@@ -149,10 +149,10 @@ def _add_tiss_token_to_url(url: str, token: str) -> str:
 def _get_tiss_session_cookies(token: str) -> dict:
     """
     Get TISS session cookies including the dynamic token cookie.
-    
+
     Args:
         token: The generated token for this request
-        
+
     Returns:
         Dictionary with all required TISS cookies
     """
@@ -241,7 +241,9 @@ def create_url_summarization_tool(llm):
                 url_with_token = _add_tiss_token_to_url(url, token)
                 headers = _get_tiss_headers()
                 cookies = _get_tiss_session_cookies(token)
-                print(f"[URL Tool] Using TISS-specific headers, cookies, and token: {token}")
+                print(
+                    f"[URL Tool] Using TISS-specific headers, cookies, and token: {token}"
+                )
                 # Use the URL with token for the actual request
                 request_url = url_with_token
             else:
@@ -250,7 +252,9 @@ def create_url_summarization_tool(llm):
                 request_url = url
 
             # Fetch the content
-            response = requests.get(request_url, headers=headers, cookies=cookies, timeout=15)
+            response = requests.get(
+                request_url, headers=headers, cookies=cookies, timeout=15
+            )
             response.raise_for_status()
 
             # Check content type to determine how to process
