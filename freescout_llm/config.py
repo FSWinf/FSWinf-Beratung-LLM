@@ -46,6 +46,7 @@ OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", OPENAI_MODEL)
 
 # Application settings
 VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "vector_db.sqlite")
+DRAFT_TRACKER_DB_PATH = os.getenv("DRAFT_TRACKER_DB_PATH", "draft_tracker.sqlite")
 
 # Validate LLM_USER_ID
 try:

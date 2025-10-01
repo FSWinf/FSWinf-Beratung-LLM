@@ -65,3 +65,26 @@ class FreeScoutAPI:
             print(f"Error creating note in FreeScout: {e}")
             print(f"Response body: {e.response.text if e.response else 'No response'}")
             return False
+
+    def create_draft(self, conversation_id: int, text: str) -> bool:
+        url = f"{self.base_url}/api/conversations/{conversation_id}/threads"
+        payload = {
+            "type": "message",
+            "text": text,
+            "state": "draft",
+            "user": LLM_USER_ID,
+            "imported": True,
+        }
+
+        print("Creating draft in FreeScout...")
+        try:
+            response = requests.post(
+                url, headers=self.headers, json=payload, timeout=30
+            )
+            response.raise_for_status()
+            print("Successfully created draft.")
+            return True
+        except requests.RequestException as e:
+            print(f"Error creating draft in FreeScout: {e}")
+            print(f"Response body: {e.response.text if e.response else 'No response'}")
+            return False

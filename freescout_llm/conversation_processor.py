@@ -3,7 +3,9 @@ Conversation processing module for the FreeScout LLM integration.
 Handles conversation analysis and response generation workflow.
 """
 
-from .config import LLM_USER_ID
+from datetime import datetime
+
+from .draft_tracker import DraftTracker
 from .freescout_api import FreeScoutAPI
 from .rag_pipeline import RAGPipeline
 from .text_processing import html_to_markdown, markdown_to_html, sanitize_html
@@ -15,6 +17,7 @@ class ConversationProcessor:
     def __init__(self):
         self.api = FreeScoutAPI()
         self.rag = RAGPipeline()
+        self.draft_tracker = DraftTracker()  # Uses configured path by default
 
     def is_ready(self) -> bool:
         """
@@ -51,7 +54,7 @@ class ConversationProcessor:
             return False
 
         # Check if processing should be skipped
-        if not force and self._should_skip_processing(threads):
+        if not force and self._should_skip_processing(threads, conversation_id):
             return True
 
         # Remove last user reply if forcing and it exists
@@ -77,10 +80,10 @@ class ConversationProcessor:
             print(
                 f"\n[Stream Only Mode] Generated suggestion for conversation {conversation_id}."
             )
-            print("Note creation skipped due to --stream-only flag.")
+            print("Draft creation skipped due to --stream-only flag.")
             return True
         else:
-            return self._create_suggestion_note(conversation_id, suggestion)
+            return self._create_suggestion_draft(conversation_id, suggestion)
 
     def _extract_threads(self, conversation: dict) -> list:
         """
@@ -101,12 +104,13 @@ class ConversationProcessor:
         ]
         return filtered_threads[::-1]
 
-    def _should_skip_processing(self, threads: list) -> bool:
+    def _should_skip_processing(self, threads: list, conversation_id: int) -> bool:
         """
         Determines if conversation processing should be skipped.
 
         Args:
             threads: List of conversation threads
+            conversation_id: The ID of the conversation
 
         Returns:
             True if processing should be skipped, False otherwise
@@ -116,17 +120,14 @@ class ConversationProcessor:
 
         last_thread = threads[-1]
 
-        # Skip if last message is already from our LLM
-        if (
-            last_thread["type"] == "note"
-            and last_thread["createdBy"]["id"] == LLM_USER_ID
-        ):
-            print("The last message is already from our LLM. Skipping.")
-            return True
-
         # Skip if last thread is a user reply
         if last_thread["type"] == "message":
             print("The last message is a user reply. Skipping.")
+            return True
+
+        # Use draft tracker to determine if we should create a new draft
+        if not self.draft_tracker.should_create_draft(conversation_id, threads):
+            print("No new activity since last LLM draft. Skipping.")
             return True
 
         return False
@@ -149,24 +150,27 @@ class ConversationProcessor:
                 conversation_text += f"{body_text}\n\n"
         return conversation_text
 
-    def _create_suggestion_note(self, conversation_id: int, suggestion: str) -> bool:
+    def _create_suggestion_draft(self, conversation_id: int, suggestion: str) -> bool:
         """
-        Creates a note with the AI suggestion in the conversation.
+        Creates a draft message with the AI suggestion in the conversation.
 
         Args:
             conversation_id: The ID of the conversation
             suggestion: The generated suggestion in markdown format
 
         Returns:
-            True if note was created successfully, False otherwise
+            True if draft was created successfully, False otherwise
         """
         suggestion_html = markdown_to_html(suggestion)
         suggestion_html = sanitize_html(suggestion_html)
-        note_text = f"<div>🤖 <b>KI-Vorschlag</b><br> {suggestion_html}</div>"
+        draft_text = f"<div>{suggestion_html}</div>"
 
-        if self.api.create_note(conversation_id, note_text):
+        if self.api.create_draft(conversation_id, draft_text):
+            # Record the draft creation with current timestamp
+            current_time = datetime.now().isoformat()
+            self.draft_tracker.record_draft_created(conversation_id, current_time)
             print(f"Process for conversation {conversation_id} completed successfully.")
             return True
         else:
-            print(f"Failed to create note for conversation {conversation_id}.")
+            print(f"Failed to create draft for conversation {conversation_id}.")
             return False
