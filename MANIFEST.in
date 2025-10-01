@@ -1,0 +1,41 @@
+include README.md
+include LICENSE
+include pyproject.toml
+include Makefile
+
+# Documentation
+recursive-include freescout_llm/scrape *.md
+
+# Configuration examples
+include .env.example
+
+# Exclude development and test files
+prune tests/
+prune .pytest_cache/
+prune __pycache__/
+
+# Exclude version control
+prune .git/
+
+# Exclude build artifacts
+prune build/
+prune dist/
+prune *.egg-info/
+
+# Exclude IDE files
+prune .vscode/
+prune .idea/
+
+# Exclude data directories
+prune knowledge_base/
+prune email_chains/
+exclude vector_db.sqlite
+
+# Exclude cache and temporary files
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude __pycache__
+global-exclude .DS_Store
+global-exclude *.tmp
+global-exclude *.temp
